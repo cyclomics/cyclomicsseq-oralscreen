@@ -344,7 +344,7 @@ process MPileup{
 
 process BamTagFilter{
     // publishDir "${params.output_dir}/${task.process.replaceAll(':', '/')}", pattern: "", mode: 'copy'
-    publishDir "${params.output_dir}/consensus_aligned", mode: 'copy'
+    // publishDir "${params.output_dir}/consensus_aligned", mode: 'copy'
     label 'many_cpu_medium'
     
     input:
