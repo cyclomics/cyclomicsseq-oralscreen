@@ -4,6 +4,7 @@ nextflow.enable.dsl=2
 include {
     AnnotateBamXTags
     AnnotateBamYTags
+    BamAlignmentRateFilter
 } from "./modules/bin.nf"
 
 include {
@@ -208,9 +209,11 @@ workflow FilterBam{
     take:
         annotated_bam
         minimun_repeat_count
+        minimum_alignment_rate
 
     main:
         BamTagFilter(annotated_bam, 'YM', minimun_repeat_count)
+        BamAlignmentRateFilter(BamTagFilter.out)
     emit:
-        BamTagFilter.out
+        BamAlignmentRateFilter.out
 }
