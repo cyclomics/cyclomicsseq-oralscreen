@@ -66,6 +66,23 @@ process CollectClassificationTypes{
         """
 }
 
+process BamAlignmentRateFilter{
+    publishDir "${params.output_dir}/consensus_aligned", mode: 'copy'
+    label 'many_cpu_medium'
+
+    input:
+        tuple val(X), path(bam_in), path(bai_in)
+
+    output:
+        tuple val(X), path("${X}.filtered.bam"), path("${X}.filtered.bam.bai")
+
+    script:
+        """
+        filter_alignment_rate.py --input_bam $bam_in --output_bam ${X}.filtered.bam --amplicons_tsv $params.amplicons_tsv --min_align_rate $params.min_align_rate
+        samtools index ${X}.filtered.bam
+        """
+}
+
 process FindVariants{
     // publishDir "${params.output_dir}/variants", mode: 'copy'
     label 'max_performance'

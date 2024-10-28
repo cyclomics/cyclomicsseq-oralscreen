@@ -282,7 +282,7 @@ workflow {
     else {
         reads_aligned_tagged = reads_aligned
     }
-    reads_aligned_filtered = FilterBam(reads_aligned_tagged, params.min_repeat_count)
+    reads_aligned_filtered = FilterBam(reads_aligned_tagged, params.min_repeat_count, params.min_align_rate)
 
 
 /*

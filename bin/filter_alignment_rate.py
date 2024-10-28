@@ -9,7 +9,7 @@ import pysam
 FilePath = Union[str, Path]
 
 
-def get_amplicon_lengths(in_file: FilePath) -> Dict[str, int]:
+def get_amplicon_lengths(in_file: str) -> Dict[str, int]:
     """Create a dictionary from a TSV file with amplicon names and expected lengths.
 
     Args:
@@ -30,7 +30,7 @@ def get_amplicon_lengths(in_file: FilePath) -> Dict[str, int]:
 
 
 def filter_alignment_rate(
-    in_file: FilePath, out_file: FilePath, amplicons_file: FilePath, min_rate: float
+    in_file: str, out_file: str, amplicons_file: str, min_rate: float
 ):
     """Filter alignments in input BAM based on contig-specific minimum alignment rates.
 
@@ -68,9 +68,9 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(
             description="Filter alignments based on contig-specific minimum alignment rates."
         )
-        parser.add_argument("input_bam", type=FilePath)
-        parser.add_argument("output_bam", type=FilePath)
-        parser.add_argument("amplicons_tsv", type=FilePath)
+        parser.add_argument("input_bam", type=str)
+        parser.add_argument("output_bam", type=str)
+        parser.add_argument("amplicons_tsv", type=str)
         parser.add_argument("min_align_rate", type=float)
         args = parser.parse_args()
 
