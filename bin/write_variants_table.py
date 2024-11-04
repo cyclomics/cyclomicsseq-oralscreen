@@ -51,6 +51,8 @@ def restructure_annotations(
     ref = variants_df["REF"]
     alt = variants_df["ALT"]
 
+    genomic_change = location + ":" + ref + ">" + alt
+
     sample1 = variants_df["SAMPLE1"].str.split(":")
     vaf = sample1.str[3]
     # convert fraction to percentage
@@ -68,62 +70,107 @@ def restructure_annotations(
     #         unique.append(x)
 
     if (info.str[0] == "ANNOTATION").all() and (info.str[1] != ".").all():
-        var_type = info.str[1].str.split("=").str[1]
+        # var_type = info.str[1].str.split("=").str[1]
         consequence = info.str[2].str.split("=").str[1]
-        symbol = info.str[5].str.split("=").str[1]
-        impact = info.str[6].str.split("=").str[1]
-        biotype = info.str[7].str.split("=").str[1]
-        sift = info.str[10].str.split("=").str[1]
-        polyphen = info.str[11].str.split("=").str[1]
+        # symbol = info.str[5].str.split("=").str[1]
+        # impact = info.str[6].str.split("=").str[1]
+        # biotype = info.str[7].str.split("=").str[1]
+        # sift = info.str[10].str.split("=").str[1]
+        # polyphen = info.str[11].str.split("=").str[1]
         cosmic_ids = info.str[3].str.split("=").str[1]
         legacy_ids = info.str[4].str.split("=").str[1]
+        refseq_transcript_ids = info.str[12].str.split("=").str[1]
+        ensembl_transcript_ids = info.str[13].str.split("=").str[1]
+        cds_mutation = info.str[14].str.extract(r":(c\.[^\s]+)")[0]
+        aa_mutation = info.str[15].str.extract(r":(p\.[^\s]+)")[0]
+
     else:
-        var_type = pd.Series(["N/A"] * len(location))
+        # var_type = pd.Series(["N/A"] * len(location))
         consequence = pd.Series(["N/A"] * len(location))
-        symbol = pd.Series(["N/A"] * len(location))
-        impact = pd.Series(["N/A"] * len(location))
-        biotype = pd.Series(["N/A"] * len(location))
-        sift = pd.Series(["N/A"] * len(location))
-        polyphen = pd.Series(["N/A"] * len(location))
+        # symbol = pd.Series(["N/A"] * len(location))
+        # impact = pd.Series(["N/A"] * len(location))
+        # biotype = pd.Series(["N/A"] * len(location))
+        # sift = pd.Series(["N/A"] * len(location))
+        # polyphen = pd.Series(["N/A"] * len(location))
         cosmic_ids = pd.Series(["N/A"] * len(location))
         legacy_ids = pd.Series(["N/A"] * len(location))
+        refseq_transcript_ids = pd.Series(["N/A"] * len(location))
+        ensembl_transcript_ids = pd.Series(["N/A"] * len(location))
+        cds_mutation = pd.Series(["N/A"] * len(location))
+        aa_mutation = pd.Series(["N/A"] * len(location))
+
+    for i, (cds_change, aa_change, var_consequence) in enumerate(
+        zip(cds_mutation, aa_mutation, consequence)
+    ):
+        if (pd.isna(aa_change) or aa_change == "N/A") and var_consequence != "N/A":
+            aa_mutation[i] = var_consequence
+
+        if (pd.isna(cds_change) or cds_change == "N/A") and var_consequence != "N/A":
+            cds_mutation[i] = var_consequence
 
     annot_columns = [
-        "Location",
-        "Ref",
-        "Alt",
-        "Var (%)",
+        "RefSeq transcript",
+        "Ensembl transcript",
+        "Codon change",
+        "Amino acid change",
+        "Genomic change",
+        "VAF (%)",
         "Coverage",
-        "Type",
-        "Symbol",
-        "Biotype",
-        "Consequence",
-        "Impact",
-        "SIFT",
-        "PolyPhen",
         "COSMIC",
         "COSMIC legacy",
     ]
 
     annot_data = [
-        location,
-        ref,
-        alt,
+        refseq_transcript_ids,
+        ensembl_transcript_ids,
+        cds_mutation,
+        aa_mutation,
+        genomic_change,
         vaf,
         coverage,
-        var_type,
-        symbol,
-        biotype,
-        consequence,
-        impact,
-        sift,
-        polyphen,
         cosmic_ids,
         legacy_ids,
     ]
 
+    # annot_columns = [
+    #     "Location",
+    #     "Ref",
+    #     "Alt",
+    #     "Var (%)",
+    #     "Coverage",
+    #     "Type",
+    #     "Symbol",
+    #     "Biotype",
+    #     "Consequence",
+    #     "Impact",
+    #     "SIFT",
+    #     "PolyPhen",
+    #     "COSMIC",
+    #     "COSMIC legacy",
+    # ]
+
+    # annot_data = [
+    #     location,
+    #     ref,
+    #     alt,
+    #     vaf,
+    #     coverage,
+    #     var_type,
+    #     symbol,
+    #     biotype,
+    #     consequence,
+    #     impact,
+    #     sift,
+    #     polyphen,
+    #     cosmic_ids,
+    #     legacy_ids,
+    # ]
+
     annotation_df = pd.concat(annot_data, axis=1)
     annotation_df.columns = annot_columns
+    annotation_df["RefSeq transcript"] = annotation_df["RefSeq transcript"].replace(
+        to_replace=",", value=", ", regex=True
+    )
     annotation_df["COSMIC"] = annotation_df["COSMIC"].replace(
         to_replace=",", value=", ", regex=True
     )
@@ -192,8 +239,8 @@ if __name__ == "__main__":
         main(args.vcf_file, args.variant_table_file, args.tab_name, args.priority_limit)
 
     else:
-        vcf_file = "/data/projects/ROD_tmp/65/08147aed79107ea52881035e4be36a/FAW08675_filtered_annotated.vcf"
-        variant_table_file = "variant_table.json"
+        vcf_file = "/scratch/spellbook/ROD/cauldron/cyclomicsseq-oralscreen/testing/FAY73116_filtered_testannotated.vcf"
+        variant_table_file = "/scratch/spellbook/ROD/cauldron/cyclomicsseq-oralscreen/testing/variant_table.json"
         tab_name = "variant_table"
         priority_limit = 9999
 
