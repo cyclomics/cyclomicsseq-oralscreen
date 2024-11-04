@@ -32,14 +32,41 @@ def obtain_legacy_cosmic_id(
     return ",".join(legacy_ids)
 
 
-class VCF_file:
-    def __init__(self, vcf_file):
-        self.vcf_file = vcf_file
-        self.vcf_header = ""
-        self.vcf = self.read_vcf(self.vcf_file)
+class PanelToHg38Translator:
+    def __init__(self, vcf):
+        self.vcf = vcf
 
-    @staticmethod
-    def relaxed_float(x: Any) -> float:
+    def find_amplicon_loci(self, contigs):
+        loci = contigs.str.split("[_|-]", expand=False)
+        chromosome = [str(locus[-3]) for locus in loci]
+        start_pos = [int(locus[-2]) for locus in loci]
+
+        return chromosome, start_pos
+
+    def translate(self):
+        chromosome, amplicon_start = self.find_amplicon_loci(self.vcf.CHROM)
+
+        self.vcf.CHROM = chromosome
+        self.vcf.POS = self.vcf.POS + amplicon_start
+
+        return self.vcf
+
+
+class VcfFile:
+    def __init__(self, vcf_file, translator=None):
+        # self.vcf_file = vcf_file
+        self.vcf_header = ""
+        self.vcf = self.read_vcf(vcf_file)
+        self.translator = translator(self.vcf)
+
+        # def annotate(self):
+        if self.translator:
+            self.vcf = self.translator.translate()
+
+        # TODO: write new VCF with GRCh38 positions
+        # self.write()
+
+    def relaxed_float(self, x: Any) -> float:
         """Return a float, with value error catch"""
         try:
             my_float = float(x)
@@ -111,7 +138,7 @@ class VCF_file:
 
     @staticmethod
     def get_query_allele_positions(
-        ref_allele: str, alt_allele: str, start: int
+        chromosome: str, start: int, ref_allele: str, alt_allele: str
     ) -> Tuple[int, int]:
         """Determine start and end positions for Ensembl query
 
@@ -174,6 +201,10 @@ class VCF_file:
         canonical = None
         sift = None
         polyphen = None
+        refseq_transcripts = None
+        transcript_id = None
+        hgvsc = None
+        hgvsp = None
 
         if not vep_json:
             # Ensembl-VEP query did not return any response
@@ -238,6 +269,20 @@ class VCF_file:
             if polyphen_prediction:
                 polyphen = f"{polyphen_prediction}({polyphen_score})"
 
+            refseq_transcripts = transcript_cons[0].get("refseq_transcript_ids")
+            refseq_transcript_ids = []
+            if refseq_transcripts:
+                for id in refseq_transcripts:
+                    refseq_transcript_ids.append(id)
+
+            refseq_transcript_ids = (
+                ",".join(refseq_transcript_ids) if refseq_transcript_ids else "None"
+            )
+
+            transcript_id = transcript_cons[0].get("transcript_id")
+            hgvsc = transcript_cons[0].get("hgvsc")
+            hgvsp = transcript_cons[0].get("hgvsp")
+
         # Merge all annotations into a string to be returned
         annot_dict = OrderedDict(
             {
@@ -252,6 +297,10 @@ class VCF_file:
                 "canonical": canonical,
                 "SIFT": sift,
                 "PolyPhen": polyphen,
+                "RefSeq transcripts": refseq_transcript_ids,
+                "Transcript": transcript_id,
+                "HGVSC": hgvsc,
+                "HGVSP": hgvsp,
             }
         )
 
@@ -268,7 +317,7 @@ class VCF_file:
         Input: Server URL (string), e.g. "https://rest.ensembl.org"
         """
         # Set API search options
-        params = "canonical=1&variant_class=1&hgvs=1&vcf_string=1&pick=1"
+        params = "canonical=1&variant_class=1&hgvs=1&xref_refseq=1&vcf_string=1&pick=1"
 
         if self.vcf.empty:
             # There are no variants to annotate
@@ -284,7 +333,7 @@ class VCF_file:
             alt_allele = var[1]["ALT"]
 
             start, end, ref_allele, alt_allele = self.get_query_allele_positions(
-                ref_allele, alt_allele, start
+                chromosome, start, ref_allele, alt_allele
             )
 
             query = (
@@ -319,14 +368,16 @@ if __name__ == "__main__":
         # Can be added to argparse
         server = "https://rest.ensembl.org"
 
-        vcf = VCF_file(args.variant_vcf)
+        vcf = VcfFile(args.variant_vcf, PanelToHg38Translator)
         vcf.annotate_vep(server)
         vcf.write(args.file_out)
 
     if dev:
-        variant_vcf = "a_test_file.vcf"
+        variant_vcf = "/scratch/spellbook/ROD/cauldron/cyclomicsseq-oralscreen/testing/FAY73116_filtered.vcf"
         server = "https://rest.ensembl.org"
 
-        vcf = VCF_file(variant_vcf)
+        vcf = VcfFile(variant_vcf, PanelToHg38Translator)
         vcf.annotate_vep(server)
-        vcf.write("testannotate.vcf")
+        vcf.write(
+            "/scratch/spellbook/ROD/cauldron/cyclomicsseq-oralscreen/testing/FAY73116_filtered_testannotated.vcf"
+        )
